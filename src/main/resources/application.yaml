@@ -1,0 +1,88 @@
+spring:
+  application:
+    name: Nothing API Router
+
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/nothing_router}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+#Deepseek上游调用配置
+router:
+  deepseek:
+    # 调用者使用的中转站模型别名
+    alias: study-chat
+    base-url: https://api.deepseek.com
+    #从运行环境中读取密钥
+    api-key: ${DEEPSEEK_API_KEY}
+    #实际上调用的上游模型
+    model: deepseek-flash
+    default-max-tokens: 128
+    max-allowed-tokens: 4096
+    reserve-units: 10000
+
+    price:
+      version: demo-v1
+      input-units-per-million: 1000000
+      cached-input-units-per-million: 1000000
+      output-units-per-million: 1000000
+
+  ark:
+    alias: doubao-chat
+    base-url: https://ark.cn-beijing.volces.com/api/v3
+    api-key: ${ARK_API_KEY}
+    model: doubao-seed-2-1-turbo-260628
+    default-max-tokens: 128
+    max-allowed-tokens: 4096
+    reserve-units: 10000
+
+    price:
+      version: demo-v1
+      input-units-per-million: 1000000
+      cached-input-units-per-million: 1000000
+      output-units-per-million: 1000000
+
+  routing:
+    prefix-history-enabled: true
+    models:
+      study-chat:
+        - deepseek
+      doubao-chat:
+        - ark
+
+  auth:
+    admin-key: ${ROUTER_ADMIN_KEY}
+
+  explicit-cache:
+    enabled: true
+    default-ttl-seconds: 600
+    max-ttl-seconds: 3600
+    max-prefix-chars: 20000
+
+    # 中转站内部预留预算：100000 微元，即0.1元
+    # 只是冻结预算，不是直接扣除这么多
+    reserve-units: 100000
+
+    # 中转站测试价，不代表方舟官方价格
+    # 与当前项目 demo-v1 的计价方式保持一致
+    create-price:
+      version: cache-create-demo-v1
+      input-units-per-million: 1000000
+      cached-input-units-per-million: 1000000
+      output-units-per-million: 1000000
+
+  # 滞留资金巡检：发现卡在预留/待处理状态的账单
+  recovery:
+    enabled: false
+    interval-ms: 300000
+    stale-seconds: 300
+    auto-retry-enabled: false
+    max-retry-age-seconds: 86400
+    batch-size: 50
+
+
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.lingrui.router.mapper.RouterWalletMapper">
+
+    <!-- 创建钱包:用户编号已经确定，不需要生成新的自增编号 -->
+    <insert id="insert" parameterType="com.lingrui.router.entity.RouterWallet">
+        INSERT INTO router_wallet (
+                                   user_id,
+                                   balance_units,
+                                   frozen_units,
+                                   created_at,
+                                   updated_at
+                                   )
+        VALUES (
+                #{userId},
+                #{balanceUnits},
+                #{frozenUnits},
+                #{createdAt},
+                #{updatedAt}
+               )
+    </insert>
+
+    <!-- 根据用户编号查询钱包，将数据库列名映射为实体字段名-->
+    <select id="selectByUserId" resultType="com.lingrui.router.entity.RouterWallet">
+        SELECT
+            user_id AS userId,
+            balance_units AS balanceUnits,
+            frozen_units AS frozenUnits,
+            created_at AS createdAt,
+            updated_at AS updatedAt
+        FROM
+            router_wallet
+        WHERE
+            user_id = #{userId}
+    </select>
+
+    <!--锁定钱包，使同一用户的并发资金操作按顺序处理-->
+    <select id="selectByUserIdForUpdate" resultType="com.lingrui.router.entity.RouterWallet">
+        SELECT
+            user_id AS userId,
+            balance_units AS balanceUnits,
+            frozen_units AS frozenUnits,
+            created_at AS createdAt,
+            updated_at AS updatedAt
+        FROM
+            router_wallet
+        WHERE
+            user_id = #{userId}
+        FOR UPDATE
+    </select>
+
+    <!--在数据库中直接增加余额，并限制正数及整数溢出-->
+    <update id="increaseBalance">
+        UPDATE router_wallet
+        SET balance_units = balance_units + #{amountUnits},
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE user_id = #{userId}
+        AND #{amountUnits} > 0
+        AND balance_units &lt;= 9223372036854775807 - #{amountUnits}
+    </update>
+
+    <!--预留预算，仅在余额足够时，将可用余额装入预留金额-->
+    <update id="reserveBalance">
+        UPDATE router_wallet
+        SET balance_units = balance_units - #{amountUnits},
+            frozen_units = frozen_units + #{amountUnits},
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE user_id = #{userId}
+        AND #{amountUnits} > 0
+        AND balance_units >= #{amountUnits}
+        AND frozen_units &lt;= 9223372036854775807 - #{amountUnits}
+    </update>
+
+    <!-- 释放预算：减少预留金额，同时恢复可用余额 -->
+    <update id="releaseBalance">
+        UPDATE router_wallet
+        SET balance_units = balance_units + #{amountUnits},
+            frozen_units = frozen_units - #{amountUnits},
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE user_id = #{userId}
+        AND #{amountUnits} > 0
+        AND frozen_units >= #{amountUnits}
+        AND balance_units &lt;= 9223372036854775807 - #{amountUnits}
+    </update>
+
+    <!--按实际费用结算：退回多预留的金额，或从可用余额补扣差额 -->
+    <update id="settleBalance">
+        UPDATE router_wallet
+        SET balance_units = balance_units + (#{reserveUnits} - #{actualCostUnits}),
+            frozen_units = frozen_units - #{reserveUnits},
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE user_id = #{userId}
+        AND #{reserveUnits} > 0
+        AND #{actualCostUnits} >= 0
+        AND frozen_units >= #{reserveUnits}
+        AND balance_units >= GREATEST(#{actualCostUnits} - #{reserveUnits}, 0)
+        AND balance_units &lt;= 9223372036854775807 - GREATEST(#{reserveUnits} - #{actualCostUnits}, 0)
+    </update>
+</mapper>

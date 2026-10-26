@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.lingrui.router.mapper.RouterWalletTransactionMapper">
+    <!-- 保存一笔资金流水,并将数据库生成的流水编号填回实体 -->
+    <insert id="insert" parameterType="com.lingrui.router.entity.RouterWalletTransaction" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO router_wallet_transaction (
+                                               user_id,
+                                               business_id,
+                                               transaction_type,
+                                               balance_change_units,
+                                               frozen_change_units,
+                                               balance_after_units,
+                                               frozen_after_units,
+                                               created_at
+                                               )
+        VALUES (
+                #{userId},
+                #{businessId},
+                #{transactionType},
+                #{balanceChangeUnits},
+                #{frozenChangeUnits},
+                #{balanceAfterUnits},
+                #{frozenAfterUnits},
+                #{createdAt})
+    </insert>
+
+    <!--按唯一业务标识查找流水-->
+    <select id="selectByBusiness" resultType="com.lingrui.router.entity.RouterWalletTransaction">
+        SELECT
+            id,
+            user_id AS userId,
+            business_id AS businessId,
+            transaction_type AS transactionType,
+            balance_change_units AS balanceChangeUnits,
+            frozen_change_units AS frozenChangeUnits,
+            balance_after_units AS balanceAfterUnits,
+            frozen_after_units AS frozenAfterUnits,
+            created_at AS createdAt
+        FROM router_wallet_transaction
+        WHERE user_id = #{userId}
+          AND business_id = #{businessId}
+          AND transaction_type = #{transactionType}
+    </select>
+</mapper>
+

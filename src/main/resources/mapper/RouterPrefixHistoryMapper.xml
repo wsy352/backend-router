@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lingrui.router.mapper.RouterPrefixHistoryMapper">
+
+    <!-- 查询同一个 key，模型和前缀的有效历史渠道 -->
+    <select id="selectRecentChannels" resultType="java.lang.String">
+        SELECT channel
+        FROM router_prefix_history
+        WHERE api_key_id = #{apiKeyId}
+          AND prefix_hash = #{prefixHash}
+          AND model_alias = #{modelAlias}
+          AND expires_at > CURRENT_TIMESTAMP(3)
+        ORDER BY last_success_at DESC, channel ASC
+    </select>
+
+    <!-- 成功后记录渠道，已有记录时刷新最近成功时间和有效期 -->
+    <insert id="saveSuccess">
+        INSERT INTO router_prefix_history (
+                                           api_key_id,
+                                           model_alias,
+                                           prefix_hash,
+                                           channel,
+                                           last_success_at,
+                                           expires_at)
+        VALUES (
+                #{apiKeyId},
+                #{modelAlias},
+                #{prefixHash},
+                #{channel},
+                CURRENT_TIMESTAMP(3),
+                DATE_ADD(CURRENT_TIMESTAMP(3), INTERVAL #{ttlSeconds} SECOND)
+               )
+        ON DUPLICATE KEY UPDATE
+                             last_success_at = CURRENT_TIMESTAMP(3),
+                             expires_at = DATE_ADD(
+                                     CURRENT_TIMESTAMP(3),
+                                     INTERVAL #{ttlSeconds} SECOND
+                                          )
+    </insert>
+
+</mapper>

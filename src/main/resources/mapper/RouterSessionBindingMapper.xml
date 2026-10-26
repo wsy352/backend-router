@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.lingrui.router.mapper.RouterSessionBindingMapper">
+<!-- 同时匹配 key,模型和会话，只返回尚未过期的绑定 -->
+    <select id="selectActive" resultType="com.lingrui.router.entity.RouterSessionBinding">
+        SELECT
+            id,
+            api_key_id AS apiKeyId,
+            model_alias AS modelAlias,
+            session_id AS sessionId,
+            channel,
+            expires_at AS expiresAt,
+            created_at AS createdAt,
+            updated_at AS updatedAt
+        FROM router_session_binding
+        WHERE api_key_id = #{apiKeyId}
+          AND model_alias = #{modelAlias}
+          AND session_id = #{sessionId}
+          AND expires_at > CURRENT_TIMESTAMP(3)
+    </select>
+
+    <!-- 唯一键不存在时新增，存在时更新渠道和有效期 -->
+    <insert id="saveBinding">
+        INSERT INTO router_session_binding (
+                                            api_key_id,
+                                            model_alias,
+                                            session_id,
+                                            channel,
+                                            expires_at,
+                                            created_at,
+                                            updated_at
+        )
+        VALUES (#{apiKeyId},
+                #{modelAlias},
+                #{sessionId},
+                #{channel},
+                DATE_ADD(
+                        CURRENT_TIMESTAMP(3),
+                        INTERVAL #{ttlSeconds} SECOND
+                ),
+                CURRENT_TIMESTAMP(3),
+                CURRENT_TIMESTAMP(3))
+        ON DUPLICATE KEY UPDATE
+                channel = #{channel},
+                expires_at = DATE_ADD(
+                CURRENT_TIMESTAMP(3),
+                INTERVAL #{ttlSeconds} SECOND
+                ),
+                updated_at = CURRENT_TIMESTAMP(3)
+    </insert>
+</mapper>

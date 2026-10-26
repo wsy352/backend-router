@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lingrui.router.mapper.ChatCallLogMapper">
+
+    <insert id="insert" parameterType="com.lingrui.router.entity.ChatCallLog"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO chat_call_log (
+                                   request_id,
+                                   user_id,
+                                   api_key_id,
+                                   model_alias,
+                                   channel,
+                                   stream,
+                                   prompt_tokens,
+                                   cached_input_tokens,
+                                   completion_tokens,
+                                   total_tokens,
+                                   status,
+                                   error_code,
+                                   duration_ms,
+                                   created_at,
+                                   price_version,
+                                   input_units_per_million,
+                                   cached_input_units_per_million,
+                                   output_units_per_million,
+                                   cost_units,
+                                   cost_calculation_status,
+                                   reserved_units,
+                                   billing_status,
+                                   updated_at
+        )
+        VALUES (
+                #{requestId},
+                #{userId},
+                #{apiKeyId},
+                #{modelAlias},
+                #{channel},
+                #{stream},
+                #{promptTokens},
+                #{cachedInputTokens},
+                #{completionTokens},
+                #{totalTokens},
+                #{status},
+                #{errorCode},
+                #{durationMs},
+                #{createdAt},
+                #{priceVersion},
+                #{inputUnitsPerMillion},
+                #{cachedInputUnitsPerMillion},
+                #{outputUnitsPerMillion},
+                #{costUnits},
+                #{costCalculationStatus},
+                #{reservedUnits},
+                #{billingStatus},
+                #{updatedAt}
+               )
+    </insert>
+
+    <select id="selectRecent"
+
+            resultType="com.lingrui.router.entity.ChatCallLog">
+        SELECT
+            id,
+            request_id AS requestId,
+            user_id AS userId,
+            api_key_id AS apiKeyId,
+            model_alias AS modelAlias,
+            channel,
+            stream,
+            prompt_tokens AS promptTokens,
+            cached_input_tokens AS cachedInputTokens,
+            completion_tokens AS completionTokens,
+            total_tokens AS totalTokens,
+            status,
+            error_code AS errorCode,
+            duration_ms AS durationMs,
+            created_at AS createdAt,
+            price_version AS priceVersion,
+            input_units_per_million AS inputUnitsPerMillion,
+            cached_input_units_per_million AS cachedInputUnitsPerMillion,
+            output_units_per_million AS outputUnitsPerMillion,
+            cost_units AS costUnits,
+            cost_calculation_status AS costCalculationStatus,
+            reserved_units AS reservedUnits,
+            billing_status AS billingStatus,
+            updated_at AS updatedAt,
+            release_reason AS releaseReason
+        FROM chat_call_log
+        ORDER BY id DESC
+        LIMIT 20
+    </select>
+
+    <select id="selectStats"
+
+            resultType="com.lingrui.router.vo.ChatCallStatsVO">
+        SELECT
+            COUNT(*) AS totalCount,
+            COUNT(CASE WHEN status = 'SUCCESS' THEN 1 END) AS successCount,
+            COUNT(CASE WHEN status = 'FAILED' THEN 1 END) AS failedCount
+        FROM chat_call_log
+    </select>
+
+
+    <!--锁定本次调用记录
+    锁只在当前事务内有效，后续事务服务会负责开启事务-->
+    <select id="selectByRequestIdForUpdate"
+            resultType="com.lingrui.router.entity.ChatCallLog">
+        SELECT
+            id,
+            request_id AS requestId,
+            user_id AS userId,
+            api_key_id AS apiKeyId,
+            model_alias AS modelAlias,
+            channel,
+            stream,
+            prompt_tokens AS promptTokens,
+            cached_input_tokens AS cachedInputTokens,
+            completion_tokens AS completionTokens,
+            total_tokens AS totalTokens,
+            status,
+            error_code AS errorCode,
+            duration_ms AS durationMs,
+            created_at AS createdAt,
+            price_version AS priceVersion,
+            input_units_per_million AS inputUnitsPerMillion,
+            cached_input_units_per_million AS cachedInputUnitsPerMillion,
+            output_units_per_million AS outputUnitsPerMillion,
+            cost_units AS costUnits,
+            cost_calculation_status AS costCalculationStatus,
+            reserved_units AS reservedUnits,
+            billing_status AS billingStatus,
+            updated_at AS updatedAt,
+            release_reason AS releaseReason
+        FROM chat_call_log
+        WHERE request_id = #{requestId}
+        FOR UPDATE
+    </select>
+
+    <!-- 只更新调用结果
+    用户身份，渠道，价格快照和预留预算不在这里修改
+    已结算或已释放的记录禁止通过此语句再次进行覆盖-->
+    <update id="updateResult" parameterType="com.lingrui.router.entity.ChatCallLog">
+        UPDATE chat_call_log
+        SET prompt_tokens = #{promptTokens},
+            cached_input_tokens = #{cachedInputTokens},
+            completion_tokens = #{completionTokens},
+            total_tokens = #{totalTokens},
+            status = #{status},
+            error_code = #{errorCode},
+            duration_ms = #{durationMs},
+            cost_units = #{costUnits},
+            cost_calculation_status = #{costCalculationStatus},
+            billing_status = #{billingStatus},
+            release_reason = #{releaseReason},
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE request_id = #{requestId}
+        AND billing_status IN ('RESERVED', 'PENDING')
+    </update>
+
+    <!-- 查询尚未完成资金处理的请求
+    普通查询不加 FOR UPDATE ，避免管理员查看列表时占用业务锁 -->
+    <select id="selectUnfinishedBilling" resultType="com.lingrui.router.entity.ChatCallLog">
+        SELECT id,
+            request_id AS requestId,
+            user_id AS userId,
+            api_key_id AS apiKeyId,
+            model_alias AS modelAlias,
+            channel,
+            stream,
+            prompt_tokens AS promptTokens,
+            cached_input_tokens AS cachedInputTokens,
+            completion_tokens AS completionTokens,
+            total_tokens AS totalTokens,
+            status,
+            error_code AS errorCode,
+            duration_ms AS durationMs,
+            created_at AS createdAt,
+            price_version AS priceVersion,
+            input_units_per_million AS inputUnitsPerMillion,
+            cached_input_units_per_million AS cachedInputUnitsPerMillion,
+            output_units_per_million AS outputUnitsPerMillion,
+            cost_units AS costUnits,
+            cost_calculation_status AS costCalculationStatus,
+            reserved_units AS reservedUnits,
+            billing_status AS billingStatus,
+            updated_at AS updatedAt,
+            release_reason AS releaseReason
+        FROM chat_call_log
+        WHERE id > #{afterId}
+        AND billing_status IN ('RESERVED', 'PENDING')
+        ORDER BY id ASC
+        LIMIT 50
+    </select>
+
+    <!-- 先识别有效样本，再按 key，渠道和模型别名汇总 -->
+    <select id="selectCacheStats" resultType="com.lingrui.router.vo.RouterCacheStatsVO">
+        WITH samples AS (
+            SELECT
+                api_key_id,
+                channel,
+                model_alias,
+                prompt_tokens,
+                cached_input_tokens,
+                cost_units,
+                CASE
+                    WHEN prompt_tokens IS NOT NULL
+                    AND cached_input_tokens IS NOT NULL
+                    AND prompt_tokens >= 0
+                    AND cached_input_tokens >= 0
+                    AND cached_input_tokens &lt;= prompt_tokens
+                THEN 1
+                ELSE 0
+        END AS cache_sample,
+                CASE
+                    WHEN billing_status = 'SETTLED'
+                    AND cost_units IS NOT NULL
+                    AND cost_units >= 0
+                    THEN 1
+                    ELSE 0
+            END AS settled_sample
+            FROM chat_call_log
+            WHERE status = 'SUCCESS'
+            AND api_key_id IS NOT NULL
+            AND channel IS NOT NULL
+            AND model_alias IS NOT NULL
+        )
+        SELECT
+            api_key_id AS apiKeyId,
+            channel,
+            model_alias AS modelAlias,
+            COUNT(*) AS successfulRequests,
+            SUM(cache_sample) AS cacheSampleRequest,
+            SUM(
+                CASE WHEN cache_sample = 1
+                        THEN prompt_tokens
+                    ELSE 0
+                END
+            ) AS sampleInputTokens,
+            SUM(
+                    CASE WHEN cache_sample = 1
+                            THEN cached_input_tokens
+                         ELSE 0
+                        END
+            ) AS cachedInputTokens,
+            SUM(settled_sample) AS settledRequests,
+            SUM(
+                    CASE WHEN settled_sample = 1
+                             THEN cost_units
+                         ELSE 0
+                        END
+            ) AS settledCostUnits
+        FROM samples
+        GROUP BY api_key_id, channel, model_alias
+        ORDER BY api_key_id, channel, model_alias
+    </select>
+
+</mapper>

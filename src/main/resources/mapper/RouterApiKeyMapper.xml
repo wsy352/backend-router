@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.lingrui.router.mapper.RouterApiKeyMapper">
+    <insert id="insert" parameterType="com.lingrui.router.entity.RouterApiKey"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO router_api_key (
+                                    user_id,
+                                    key_name,
+                                    key_hash,
+                                    key_prefix,
+                                    status,
+                                    created_at,
+                                    updated_at
+        )
+                        VALUES (
+                                    #{userId},
+                                    #{keyName},
+                                    #{keyHash},
+                                    #{keyPrefix},
+                                    #{status},
+                                    #{createdAt},
+                                    #{updatedAt}
+               )
+    </insert>
+
+    <select id="selectByKeyHash" resultType="com.lingrui.router.entity.RouterApiKey">
+        SELECT
+            id,
+            user_id AS userId,
+            key_name AS keyName,
+            key_hash AS keyHash,
+            key_prefix AS keyPrefix,
+            status,
+            created_at AS createdAt,
+            updated_at AS updatedAt
+        FROM router_api_key
+        WHERE key_hash = #{keyHash}
+    </select>
+
+    <select id="selectByUserIdAndId" resultType="com.lingrui.router.entity.RouterApiKey">
+        SELECT
+            id,
+            user_id AS userId,
+            key_name AS keyName,
+            key_hash AS keyHash,
+            key_prefix AS keyPrefix,
+            status,
+            created_at AS createdAt,
+            updated_at AS updatedAt
+        FROM router_api_key
+        WHERE user_id = #{userId} AND id = #{id}
+    </select>
+
+    <update id="disableByUserIdAndId">
+        UPDATE router_api_key
+        SET status = 'DISABLED',
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE user_id = #{userId}
+          AND id = #{id}
+          AND status = 'ENABLED'
+    </update>
+</mapper>
